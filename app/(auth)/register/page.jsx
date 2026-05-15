@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -9,8 +10,11 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "User",
+    role: "user",
   });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -18,16 +22,51 @@ export default function RegisterPage() {
       ...prev,
       [name]: value,
     }));
+    setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+    const { name, email, password, confirmPassword, role } = formData;
+
+    // Client-side validation
+    if (!name || !email || !password || !confirmPassword || !role) {
+      setError("All fields are required");
       return;
     }
-    // This will be connected to API later
-    console.log("Registration attempted with:", formData);
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("http://localhost:9090/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("token", data.data.token);
+        localStorage.setItem("user", JSON.stringify(data.data.user));
+        router.push("/dashboard");
+      } else {
+        setError(data.message || "Registration failed");
+      }
+    } catch (err) {
+      setError("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,6 +81,8 @@ export default function RegisterPage() {
             <p className="font-source text-gray-600 mb-8">
               Join Eventra and start exploring events
             </p>
+
+            {error && <div className="text-red-500 mb-4">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Name Field */}
@@ -124,14 +165,18 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   className="input-field"
                 >
-                  <option value="User">Attendee</option>
-                  <option value="Organizer">Event Organizer</option>
+                  <option value="user">Attendee</option>
+                  <option value="organizer">Event Organizer</option>
                 </select>
               </div>
 
               {/* Submit Button */}
-              <button type="submit" className="btn-primary w-full">
-                Create Account
+              <button
+                type="submit"
+                className="btn-primary w-full"
+                disabled={loading}
+              >
+                {loading ? "Creating account..." : "Create Account"}
               </button>
             </form>
 
