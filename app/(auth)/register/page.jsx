@@ -14,6 +14,8 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
 
   const handleChange = (e) => {
@@ -47,6 +49,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
+      console.log("[Register] POST http://localhost:9090/api/auth/register", { name, email, role });
       const response = await fetch("http://localhost:9090/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,11 +57,11 @@ export default function RegisterPage() {
       });
 
       const data = await response.json();
+      console.log("[Register] response", response.status, response.url, data);
 
       if (response.ok) {
-        localStorage.setItem("token", data.data.token);
-        localStorage.setItem("user", JSON.stringify(data.data.user));
-        router.push("/dashboard");
+        // After registration, go to login so the user can sign in.
+        router.push("/login");
       } else {
         setError(data.message || "Registration failed");
       }
@@ -124,16 +127,34 @@ export default function RegisterPage() {
                 <label htmlFor="password" className="block font-source text-sm font-medium text-gray-700 mb-2">
                   Password
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="input-field"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    className="input-field pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-900"
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                        <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-14-14zM2 10a8.974 8.974 0 0113.882 2.9 1 1 0 11-1.768.934A6.974 6.974 0 002 10zm16.464-4.536a1 1 0 00-1.414-1.414A9.012 9.012 0 002.05 7.114 1 1 0 003.464 8.528 7.012 7.012 0 0118.464 5.464zm2.36 7.192a1 1 0 11-1.768.934A8.974 8.974 0 016.118 2.9 1 1 007.882 2.032 10.974 10.974 0 0120.824 12.656z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Confirm Password Field */}
@@ -141,16 +162,34 @@ export default function RegisterPage() {
                 <label htmlFor="confirmPassword" className="block font-source text-sm font-medium text-gray-700 mb-2">
                   Confirm Password
                 </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="input-field"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    className="input-field pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-900"
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                        <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-14-14zM2 10a8.974 8.974 0 0113.882 2.9 1 1 0 11-1.768.934A6.974 6.974 0 002 10zm16.464-4.536a1 1 0 00-1.414-1.414A9.012 9.012 0 002.05 7.114 1 1 0 003.464 8.528 7.012 7.012 0 0118.464 5.464zm2.36 7.192a1 1 0 11-1.768.934A8.974 8.974 0 016.118 2.9 1 1 007.882 2.032 10.974 10.974 0 0120.824 12.656z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Role Selector */}

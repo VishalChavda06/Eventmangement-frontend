@@ -1,84 +1,84 @@
+"use client";
+import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import BookingStatusBadge from "@/components/BookingStatusBadge";
 
-// Dummy user data
-const userData = {
-  name: "Sarah Anderson",
-  email: "sarah@example.com",
-  stats: {
-    registeredEvents: 12,
-    upcomingEvents: 4,
-    totalSpent: 450,
-  },
-  bookings: [
-    {
-      id: 1,
-      eventName: "Tech Innovation Summit 2026",
-      date: "May 20, 2026",
-      status: "Confirmed",
-      tickets: 2,
-      price: 198,
-    },
-    {
-      id: 2,
-      eventName: "Jazz in the Park",
-      date: "May 25, 2026",
-      status: "Pending",
-      tickets: 4,
-      price: 0,
-    },
-    {
-      id: 3,
-      eventName: "Business Leaders Conference",
-      date: "June 1, 2026",
-      status: "Confirmed",
-      tickets: 1,
-      price: 149,
-    },
-    {
-      id: 4,
-      eventName: "Crypto & Blockchain Expo",
-      date: "June 5, 2026",
-      status: "Completed",
-      tickets: 1,
-      price: 79,
-    },
-  ],
-};
-
 export default function DashboardPage() {
+  const [user, setUser] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const u = localStorage.getItem("user");
+      return u ? JSON.parse(u) : null;
+    } catch (err) {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    const loadProfile = async () => {
+      try {
+        const response = await fetch("http://localhost:9090/api/auth/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error("Unauthorized");
+        }
+        const data = await response.json();
+        const profile = data.data || data.user || data;
+        setUser(profile);
+        localStorage.setItem("user", JSON.stringify(profile));
+      } catch (err) {
+        router.push("/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [router]);
+
+  if (loading) return null;
+  if (!user) return null;
+
+  const stats = user.stats || { registeredEvents: 0, upcomingEvents: 0, totalSpent: 0 };
+  const bookings = user.bookings || [];
+
   return (
     <div className="bg-white min-h-screen py-12">
       <div className="container-max">
         {/* Welcome Header */}
         <div className="mb-12">
           <h1 className="font-playfair text-4xl font-bold mb-2 text-[#0f172a]">
-            Welcome back, {userData.name}
+            Welcome back, {user.name || user.email}
           </h1>
-          <p className="font-source text-gray-600">
-            Manage your events and bookings from your personal dashboard
-          </p>
+          <p className="font-source text-gray-600">Manage your events and bookings from your personal dashboard</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="card p-6">
             <p className="font-source text-sm text-gray-600 mb-2">Registered Events</p>
-            <p className="font-playfair text-3xl font-bold text-[#b8960c]">
-              {userData.stats.registeredEvents}
-            </p>
+            <p className="font-playfair text-3xl font-bold text-[#b8960c]">{stats.registeredEvents}</p>
           </div>
           <div className="card p-6">
             <p className="font-source text-sm text-gray-600 mb-2">Upcoming Events</p>
-            <p className="font-playfair text-3xl font-bold text-[#b8960c]">
-              {userData.stats.upcomingEvents}
-            </p>
+            <p className="font-playfair text-3xl font-bold text-[#b8960c]">{stats.upcomingEvents}</p>
           </div>
           <div className="card p-6">
             <p className="font-source text-sm text-gray-600 mb-2">Total Spent</p>
-            <p className="font-playfair text-3xl font-bold text-[#b8960c]">
-              ${userData.stats.totalSpent}
-            </p>
+            <p className="font-playfair text-3xl font-bold text-[#b8960c]">${stats.totalSpent}</p>
           </div>
         </div>
 
@@ -103,9 +103,7 @@ export default function DashboardPage() {
 
         {/* Recent Bookings Table */}
         <div className="card p-6">
-          <h2 className="font-playfair text-2xl font-bold mb-6 text-[#0f172a]">
-            Recent Bookings
-          </h2>
+          <h2 className="font-playfair text-2xl font-bold mb-6 text-[#0f172a]">Recent Bookings</h2>
 
           {/* Table for larger screens */}
           <div className="overflow-x-auto hidden md:block">
@@ -120,17 +118,13 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {userData.bookings.map((booking) => (
+                {bookings.map((booking) => (
                   <tr key={booking.id} className="border-b border-[#e7e5e4] hover:bg-[#f5f5f4] transition-colors">
                     <td className="py-4 px-4 text-gray-900">{booking.eventName}</td>
                     <td className="py-4 px-4 text-gray-600">{booking.date}</td>
-                    <td className="py-4 px-4">
-                      <BookingStatusBadge status={booking.status} />
-                    </td>
+                    <td className="py-4 px-4"><BookingStatusBadge status={booking.status} /></td>
                     <td className="py-4 px-4 text-gray-900">{booking.tickets}</td>
-                    <td className="py-4 px-4 text-right font-semibold text-gray-900">
-                      {booking.price === 0 ? "Free" : `$${booking.price}`}
-                    </td>
+                    <td className="py-4 px-4 text-right font-semibold text-gray-900">{booking.price === 0 ? "Free" : `$${booking.price}`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -139,7 +133,7 @@ export default function DashboardPage() {
 
           {/* Cards for mobile */}
           <div className="md:hidden space-y-4">
-            {userData.bookings.map((booking) => (
+            {bookings.map((booking) => (
               <div key={booking.id} className="bg-[#f5f5f4] p-4 rounded-sm">
                 <p className="font-semibold text-gray-900 mb-2">{booking.eventName}</p>
                 <div className="space-y-1 text-sm text-gray-600">
@@ -147,9 +141,7 @@ export default function DashboardPage() {
                   <p>🎫 {booking.tickets} ticket(s)</p>
                   <div className="flex justify-between items-center pt-2 mt-2 border-t border-[#e7e5e4]">
                     <BookingStatusBadge status={booking.status} />
-                    <span className="font-semibold text-gray-900">
-                      {booking.price === 0 ? "Free" : `$${booking.price}`}
-                    </span>
+                    <span className="font-semibold text-gray-900">{booking.price === 0 ? "Free" : `$${booking.price}`}</span>
                   </div>
                 </div>
               </div>
