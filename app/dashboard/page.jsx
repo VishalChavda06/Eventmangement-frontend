@@ -82,6 +82,23 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {user.role === "organizer" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            <Link href="/organizer/create-event" className="card p-6 hover:shadow-lg transition-shadow">
+              <h3 className="font-playfair text-xl font-bold mb-3 text-[#0f172a]">Create a New Event</h3>
+              <p className="font-source text-gray-600 text-sm">
+                Publish your next event and make it visible to attendees across the platform.
+              </p>
+            </Link>
+            <Link href="/events" className="card p-6 hover:shadow-lg transition-shadow">
+              <h3 className="font-playfair text-xl font-bold mb-3 text-[#0f172a]">View Published Events</h3>
+              <p className="font-source text-gray-600 text-sm">
+                See the live events you have created and verify they are visible to users.
+              </p>
+            </Link>
+          </div>
+        )}
+
         {/* Dashboard Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           <Link href="/dashboard/bookings" className="card p-6 hover:shadow-lg transition-shadow">

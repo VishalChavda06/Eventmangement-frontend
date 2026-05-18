@@ -48,7 +48,7 @@ export default function LoginPage() {
           setError("Login succeeded but token was missing from response.");
           return;
         }
-
+        
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(userPayload));
         document.cookie = `authToken=${token}; path=/; max-age=${7 * 24 * 60 * 60}`;

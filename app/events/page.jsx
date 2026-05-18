@@ -4,106 +4,133 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import EventCard from "@/components/EventCard";
 
-// Dummy events data
-const allEvents = [
-  {
-    id: 1,
-    title: "Tech Innovation Summit 2026",
-    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop",
-    category: "Tech",
-    date: "May 20, 2026",
-    location: "San Francisco, CA",
-    price: 99,
-  },
-  {
-    id: 2,
-    title: "Jazz in the Park",
-    image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500&h=300&fit=crop",
-    category: "Music",
-    date: "May 25, 2026",
-    location: "Central Park, NY",
-    price: 0,
-  },
-  {
-    id: 3,
-    title: "Business Leaders Conference",
-    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop",
-    category: "Business",
-    date: "June 1, 2026",
-    location: "New York, NY",
-    price: 149,
-  },
-  {
-    id: 4,
-    title: "Crypto & Blockchain Expo",
-    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop",
-    category: "Tech",
-    date: "June 5, 2026",
-    location: "Miami, FL",
-    price: 79,
-  },
-  {
-    id: 5,
-    title: "Summer Music Festival",
-    image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500&h=300&fit=crop",
-    category: "Music",
-    date: "June 15, 2026",
-    location: "Coachella Valley, CA",
-    price: 199,
-  },
-  {
-    id: 6,
-    title: "Startup Pitch Competition",
-    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop",
-    category: "Business",
-    date: "June 20, 2026",
-    location: "Boston, MA",
-    price: 49,
-  },
-];
-
-const categories = ["Tech", "Music", "Business", "Sports", "Art", "Food"];
-
 function EventsContent() {
   const searchParams = useSearchParams();
-  const [filteredEvents, setFilteredEvents] = useState(allEvents);
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
+  const [events, setEvents] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [filteredEvents, setFilteredEvents] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [priceFilter, setPriceFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    let results = allEvents;
+    setSelectedCategory(searchParams.get("category") || "all");
+  }, [searchParams]);
 
-    // Filter by category
-    if (selectedCategory) {
-      results = results.filter((event) => event.category === selectedCategory);
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [eventsResponse, categoriesResponse] = await Promise.all([
+          fetch("http://localhost:9090/api/events"),
+          fetch("http://localhost:9090/api/categories"),
+        ]);
+
+        const [eventsData, categoriesData] = await Promise.all([
+          eventsResponse.json(),
+          categoriesResponse.json(),
+        ]);
+
+        if (eventsResponse.ok) {
+          setEvents(eventsData.data || []);
+        } else {
+          setError(eventsData.message || "Unable to load events");
+          setEvents([]);
+        }
+
+        if (categoriesResponse.ok) {
+          setCategories(categoriesData.data || []);
+        } else {
+          setCategories([]);
+        }
+      } catch (err) {
+        setError("Unable to load events. Please try again later.");
+        setEvents([]);
+        setCategories([]);
+      } finally {
+        setLoading(false);
+        setLoadingCategories(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    let results = [...events];
+    const selectedCategoryLower = String(selectedCategory).toLowerCase();
+
+    if (selectedCategory !== "all") {
+      results = results.filter((event) => {
+        const categoryId = String(event.category?._id || event.category || "");
+        const categoryName = String(event.category?.name || "").toLowerCase();
+        return categoryId === selectedCategory || categoryName === selectedCategoryLower;
+      });
     }
 
-    // Filter by search term
     if (searchTerm) {
       results = results.filter((event) =>
-        event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        event.location.toLowerCase().includes(searchTerm.toLowerCase())
+        event.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.location?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Filter by price
     if (priceFilter === "free") {
-      results = results.filter((event) => event.price === 0);
+      results = results.filter((event) => Number(event.price) === 0);
     } else if (priceFilter === "paid") {
-      results = results.filter((event) => event.price > 0);
+      results = results.filter((event) => Number(event.price) > 0);
     }
 
     setFilteredEvents(results);
-  }, [selectedCategory, searchTerm, priceFilter]);
+  }, [events, selectedCategory, searchTerm, priceFilter]);
 
   return (
     <div className="bg-white min-h-screen py-12">
       <div className="container-max">
         {/* Page Header */}
-        <h1 className="font-playfair text-4xl font-bold mb-8 text-[#0f172a]">
+        <h1 className="font-playfair text-4xl font-bold mb-6 text-[#0f172a]">
           Discover Events
         </h1>
+
+        {/* Category Filter Pills */}
+        <div className="mb-8 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory("all")}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
+              selectedCategory === "all"
+                ? "bg-[#0f172a] text-white"
+                : "bg-white text-[#0f172a] border-[#0f172a]"
+            }`}
+          >
+            All
+          </button>
+          {categories.map((category) => {
+            const isActiveCategory =
+              selectedCategory === category._id ||
+              selectedCategory.toLowerCase() === category.name.toLowerCase();
+            return (
+              <button
+                key={category._id}
+                type="button"
+                onClick={() => setSelectedCategory(category._id)}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
+                  isActiveCategory
+                    ? "bg-[#0f172a] text-white"
+                    : "bg-white text-[#0f172a] border-[#0f172a]"
+                }`}
+              >
+                {category.name}
+              </button>
+            );
+          })}
+          {loadingCategories && <div className="text-sm text-gray-500">Loading categories...</div>}
+        </div>
 
         {/* Search Bar */}
         <div className="mb-8">
@@ -117,14 +144,10 @@ function EventsContent() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Sidebar Filters */}
           <div className="md:col-span-1">
             <div className="card p-6">
-              <h3 className="font-playfair text-lg font-bold mb-6 text-[#0f172a]">
-                Filters
-              </h3>
+              <h3 className="font-playfair text-lg font-bold mb-6 text-[#0f172a]">Filters</h3>
 
-              {/* Category Filter */}
               <div className="mb-8">
                 <h4 className="font-source font-semibold text-gray-900 mb-4">Category</h4>
                 <div className="space-y-3">
@@ -132,30 +155,34 @@ function EventsContent() {
                     <input
                       type="radio"
                       name="category"
-                      value=""
-                      checked={selectedCategory === ""}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      value="all"
+                      checked={selectedCategory === "all"}
+                      onChange={() => setSelectedCategory("all")}
                       className="mr-3 w-4 h-4"
                     />
                     All Categories
                   </label>
-                  {categories.map((category) => (
-                    <label key={category} className="flex items-center font-source text-sm">
-                      <input
-                        type="radio"
-                        name="category"
-                        value={category}
-                        checked={selectedCategory === category}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="mr-3 w-4 h-4"
-                      />
-                      {category}
-                    </label>
-                  ))}
+                  {categories.map((category) => {
+                    const isChecked =
+                      selectedCategory === category._id ||
+                      selectedCategory.toLowerCase() === category.name.toLowerCase();
+                    return (
+                      <label key={category._id} className="flex items-center font-source text-sm">
+                        <input
+                          type="radio"
+                          name="category"
+                          value={category._id}
+                          checked={isChecked}
+                          onChange={() => setSelectedCategory(category._id)}
+                          className="mr-3 w-4 h-4"
+                        />
+                        {category.name}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Price Filter */}
               <div>
                 <h4 className="font-source font-semibold text-gray-900 mb-4">Price</h4>
                 <div className="space-y-3">
@@ -197,12 +224,19 @@ function EventsContent() {
             </div>
           </div>
 
-          {/* Events Grid */}
           <div className="md:col-span-3">
-            {filteredEvents.length > 0 ? (
+            {loading ? (
+              <div className="rounded-xl bg-white p-10 text-center text-sm text-gray-600 shadow-sm">
+                Loading events...
+              </div>
+            ) : error ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-800">
+                {error}
+              </div>
+            ) : filteredEvents.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredEvents.map((event) => (
-                  <EventCard key={event.id} event={event} />
+                  <EventCard key={event._id || event.id} event={event} />
                 ))}
               </div>
             ) : (

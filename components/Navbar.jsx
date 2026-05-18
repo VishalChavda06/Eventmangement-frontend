@@ -82,16 +82,34 @@ export default function Navbar() {
     setProfileMessage("");
     try {
       if (token) {
+        const profilePayload = { ...profileData };
+
+        if (typeof profilePayload.profileImage === "string" && profilePayload.profileImage.startsWith("data:")) {
+          const uploadResponse = await fetch("http://localhost:9090/api/upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ image: profilePayload.profileImage }),
+          });
+          const uploadData = await uploadResponse.json();
+          if (!uploadResponse.ok) {
+            throw new Error(uploadData.message || "Image upload failed");
+          }
+          profilePayload.profileImage = uploadData.data.url;
+        }
+
         const response = await fetch("http://localhost:9090/api/auth/profile", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(profileData),
+          body: JSON.stringify(profilePayload),
         });
         const data = await response.json();
-        const saved = data.data ?? data.user ?? profileData;
+        const saved = data.data ?? data.user ?? profilePayload;
         window.localStorage.setItem("user", JSON.stringify(saved));
         setProfileData(saved);
         setUserName(saved.name || saved.email || "");
@@ -141,6 +159,16 @@ export default function Navbar() {
           {auth ? (
             <>
               {userName && <span className="font-source text-sm text-gray-700">Hello, {userName}</span>}
+              {profileData?.role === "organizer" && (
+                <Link href="/organizer/create-event" className="btn-primary">
+                  Create Event
+                </Link>
+              )}
+              {profileData?.role === "admin" && (
+                <Link href="/admin" className="btn-primary">
+                  Admin Panel
+                </Link>
+              )}
               <button onClick={() => setProfileOpen((prev) => !prev)} className="btn-outline">
                 Profile
               </button>
@@ -231,6 +259,16 @@ export default function Navbar() {
               {auth ? (
                 <>
                   {userName && <div className="font-source text-sm text-gray-700">Hello, {userName}</div>}
+                  {profileData?.role === "organizer" && (
+                    <Link href="/organizer/create-event" className="btn-primary text-center" onClick={() => setIsMenuOpen(false)}>
+                      Create Event
+                    </Link>
+                  )}
+                  {profileData?.role === "admin" && (
+                    <Link href="/admin" className="btn-primary text-center" onClick={() => setIsMenuOpen(false)}>
+                      Admin Panel
+                    </Link>
+                  )}
                   <button onClick={() => { setProfileOpen((prev) => !prev); setIsMenuOpen(false); }} className="btn-outline text-center">
                     Profile
                   </button>
