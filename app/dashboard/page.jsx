@@ -15,6 +15,7 @@ export default function DashboardPage() {
       return null;
     }
   });
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -25,7 +26,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const loadProfile = async () => {
+    const loadProfileAndBookings = async () => {
       try {
         const response = await fetch("http://localhost:9090/api/auth/profile", {
           headers: {
@@ -39,6 +40,18 @@ export default function DashboardPage() {
         const profile = data.data || data.user || data;
         setUser(profile);
         localStorage.setItem("user", JSON.stringify(profile));
+
+        // Fetch user's bookings
+        const bookingsResponse = await fetch("http://localhost:9090/api/bookings/my", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (bookingsResponse.ok) {
+          const bookingsData = await bookingsResponse.json();
+          setBookings(bookingsData.data || []);
+        }
       } catch (err) {
         router.push("/login");
       } finally {
@@ -46,14 +59,25 @@ export default function DashboardPage() {
       }
     };
 
-    loadProfile();
+    loadProfileAndBookings();
   }, [router]);
 
   if (loading) return null;
   if (!user) return null;
 
-  const stats = user.stats || { registeredEvents: 0, upcomingEvents: 0, totalSpent: 0 };
-  const bookings = user.bookings || [];
+  // Calculate stats from real bookings
+  const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+  const totalSpent = confirmedBookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+  const upcomingBookings = confirmedBookings.filter(b => {
+    const eventDate = new Date(b.event?.date);
+    return eventDate > new Date();
+  }).length;
+
+  const stats = {
+    registeredEvents: bookings.length,
+    upcomingEvents: upcomingBookings,
+    totalSpent: totalSpent.toFixed(2)
+  };
 
   return (
     <div className="bg-white min-h-screen py-12">
@@ -135,34 +159,48 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {bookings.map((booking) => (
-                  <tr key={booking.id} className="border-b border-[#e7e5e4] hover:bg-[#f5f5f4] transition-colors">
-                    <td className="py-4 px-4 text-gray-900">{booking.eventName}</td>
-                    <td className="py-4 px-4 text-gray-600">{booking.date}</td>
-                    <td className="py-4 px-4"><BookingStatusBadge status={booking.status} /></td>
-                    <td className="py-4 px-4 text-gray-900">{booking.tickets}</td>
-                    <td className="py-4 px-4 text-right font-semibold text-gray-900">{booking.price === 0 ? "Free" : `$${booking.price}`}</td>
+                {bookings.length > 0 ? (
+                  bookings.map((booking) => (
+                    <tr key={booking._id} className="border-b border-[#e7e5e4] hover:bg-[#f5f5f4] transition-colors">
+                      <td className="py-4 px-4 text-gray-900">{booking.event?.title || 'Unknown Event'}</td>
+                      <td className="py-4 px-4 text-gray-600">{new Date(booking.event?.date).toLocaleDateString()}</td>
+                      <td className="py-4 px-4"><BookingStatusBadge status={booking.status} /></td>
+                      <td className="py-4 px-4 text-gray-900">{booking.seatsBooked}</td>
+                      <td className="py-4 px-4 text-right font-semibold text-gray-900">{booking.totalAmount === 0 ? "Free" : `$${booking.totalAmount.toFixed(2)}`}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="py-4 px-4 text-center text-gray-600">
+                      No bookings yet. <Link href="/events" className="text-[#0f172a] hover:underline">Explore events</Link>
+                    </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
 
           {/* Cards for mobile */}
           <div className="md:hidden space-y-4">
-            {bookings.map((booking) => (
-              <div key={booking.id} className="bg-[#f5f5f4] p-4 rounded-sm">
-                <p className="font-semibold text-gray-900 mb-2">{booking.eventName}</p>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <p>📅 {booking.date}</p>
-                  <p>🎫 {booking.tickets} ticket(s)</p>
-                  <div className="flex justify-between items-center pt-2 mt-2 border-t border-[#e7e5e4]">
-                    <BookingStatusBadge status={booking.status} />
-                    <span className="font-semibold text-gray-900">{booking.price === 0 ? "Free" : `$${booking.price}`}</span>
+            {bookings.length > 0 ? (
+              bookings.map((booking) => (
+                <div key={booking._id} className="bg-[#f5f5f4] p-4 rounded-sm">
+                  <p className="font-semibold text-gray-900 mb-2">{booking.event?.title || 'Unknown Event'}</p>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <p>📅 {new Date(booking.event?.date).toLocaleDateString()}</p>
+                    <p>🎫 {booking.seatsBooked} ticket(s)</p>
+                    <div className="flex justify-between items-center pt-2 mt-2 border-t border-[#e7e5e4]">
+                      <BookingStatusBadge status={booking.status} />
+                      <span className="font-semibold text-gray-900">{booking.totalAmount === 0 ? "Free" : `$${booking.totalAmount.toFixed(2)}`}</span>
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center text-gray-600 py-8">
+                No bookings yet. <Link href="/events" className="text-[#0f172a] hover:underline">Explore events</Link>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function BookingPage({ params }) {
+export default function BookingPage() {
+  const params = useParams();
   const { id } = params;
   const router = useRouter();
 
@@ -15,10 +16,11 @@ export default function BookingPage({ params }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [fetchError, setFetchError] = useState('');
+  const [alreadyBooked, setAlreadyBooked] = useState(false);
 
-  // Fetch event details on mount
+  // Fetch event details and check for existing booking on mount
   useEffect(() => {
-    const fetchEvent = async () => {
+    const fetchEventAndCheckBooking = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -26,13 +28,30 @@ export default function BookingPage({ params }) {
           return;
         }
 
-        const response = await fetch(`http://localhost:9090/api/events/${id}`);
-        const data = await response.json();
+        // Fetch event details
+        const eventResponse = await fetch(`http://localhost:9090/api/events/${id}`);
+        const eventData = await eventResponse.json();
 
-        if (response.ok) {
-          setEvent(data.data);
+        if (eventResponse.ok) {
+          setEvent(eventData.data);
         } else {
-          setFetchError(data.message || 'Failed to fetch event');
+          setFetchError(eventData.message || 'Failed to fetch event');
+        }
+
+        // Check if user has already booked this event
+        const bookingsResponse = await fetch('http://localhost:9090/api/bookings/my', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const bookingsData = await bookingsResponse.json();
+        if (bookingsResponse.ok) {
+          const userBookings = bookingsData.data;
+          const hasBooked = userBookings.some(
+            (booking) => booking.event._id === id && booking.status !== 'cancelled'
+          );
+          setAlreadyBooked(hasBooked);
         }
       } catch (err) {
         setFetchError('Error fetching event details');
@@ -41,7 +60,7 @@ export default function BookingPage({ params }) {
       }
     };
 
-    fetchEvent();
+    fetchEventAndCheckBooking();
   }, [id, router]);
 
   // Handle booking submission
@@ -157,47 +176,70 @@ export default function BookingPage({ params }) {
           <hr className="my-6 border-gray-200" />
 
           {/* Booking Section */}
-          <div>
-            <h2 className="text-lg font-bold text-[#0f172a] font-serif mb-4">
-              Select Seats
-            </h2>
+          {!alreadyBooked && (
+            <div>
+              <h2 className="text-lg font-bold text-[#0f172a] font-serif mb-4">
+                Select Seats
+              </h2>
 
-            <div className="mb-6">
-              <p className="text-sm text-gray-600 mb-3">
-                Available: {event.availableSeats} seats
-              </p>
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-3">
+                  Available: {event.availableSeats} seats
+                </p>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Number of Seats
-              </label>
-              <input
-                type="number"
-                min="1"
-                max={event.availableSeats}
-                value={seatsBooked}
-                onChange={(e) => setSeatsBooked(parseInt(e.target.value) || 1)}
-                className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f172a]"
-              />
-            </div>
-
-            {/* Total Amount */}
-            <div className="flex justify-between items-center mb-6 p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">
-                Total Amount
-              </span>
-              <span className="text-xl font-bold text-[#0f172a]">
-                {event.isFree ? 'Free' : `$${totalAmount.toFixed(2)}`}
-              </span>
-            </div>
-
-            {/* Error message */}
-            {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-                {error}
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Number of Seats
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={event.availableSeats}
+                  value={seatsBooked}
+                  onChange={(e) => setSeatsBooked(parseInt(e.target.value) || 1)}
+                  className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f172a]"
+                />
               </div>
-            )}
 
-            {/* Confirm Booking Button */}
+              {/* Total Amount */}
+              <div className="flex justify-between items-center mb-6 p-3 bg-gray-50 rounded-lg">
+                <span className="text-sm font-medium text-gray-700">
+                  Total Amount
+                </span>
+                <span className="text-xl font-bold text-[#0f172a]">
+                  {event.isFree ? 'Free' : `$${totalAmount.toFixed(2)}`}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Error message */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Already Booked Message */}
+          {alreadyBooked && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-blue-700 text-center font-semibold">
+                ✓ You have already booked this event
+              </p>
+              <p className="text-blue-600 text-sm text-center mt-2">
+                Check your booking details in the dashboard
+              </p>
+            </div>
+          )}
+
+          {/* Confirm Booking Button */}
+          {alreadyBooked ? (
+            <Link
+              href="/dashboard/bookings"
+              className="w-full block text-center bg-[#0f172a] text-white rounded-md px-4 py-2.5 font-semibold hover:bg-[#1e293b] transition-colors duration-200"
+            >
+              View My Bookings
+            </Link>
+          ) : (
             <button
               onClick={handleBook}
               disabled={submitting}
@@ -205,16 +247,16 @@ export default function BookingPage({ params }) {
             >
               {submitting ? 'Booking...' : 'Confirm Booking'}
             </button>
+          )}
 
-            {/* Back link */}
-            <div className="mt-4 text-center">
-              <Link
-                href={`/events/${id}`}
-                className="text-sm text-[#0f172a] hover:underline"
-              >
-                ← Back to Event
-              </Link>
-            </div>
+          {/* Back link */}
+          <div className="mt-4 text-center">
+            <Link
+              href={`/events/${id}`}
+              className="text-sm text-[#0f172a] hover:underline"
+            >
+              ← Back to Event
+            </Link>
           </div>
         </div>
       </div>

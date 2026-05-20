@@ -18,6 +18,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "d1csarkz80be9u.cloudfront.net",
       },
+      {
+        protocol: "https",
+        hostname: "jdi.group",
+      },
     ],
   },
 };
