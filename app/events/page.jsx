@@ -17,6 +17,7 @@ function EventsContent() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedCategory(searchParams.get("category") || "all");
   }, [searchParams]);
 
@@ -86,6 +87,7 @@ function EventsContent() {
       results = results.filter((event) => Number(event.price) > 0);
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilteredEvents(results);
   }, [events, selectedCategory, searchTerm, priceFilter]);
 

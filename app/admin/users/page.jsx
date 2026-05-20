@@ -1,92 +1,215 @@
-import Link from "next/link";
+'use client';
 
-// Dummy users data
-const users = [
-  { id: 1, name: "Sarah Johnson", email: "sarah@example.com", role: "User", joinDate: "May 10, 2026", status: "Active" },
-  { id: 2, name: "Michael Chen", email: "michael@example.com", role: "Organizer", joinDate: "May 9, 2026", status: "Active" },
-  { id: 3, name: "Emma Wilson", email: "emma@example.com", role: "User", joinDate: "May 8, 2026", status: "Active" },
-  { id: 4, name: "David Brown", email: "david@example.com", role: "User", joinDate: "May 7, 2026", status: "Inactive" },
-  { id: 5, name: "Lisa Anderson", email: "lisa@example.com", role: "Organizer", joinDate: "May 6, 2026", status: "Active" },
-];
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function AdminUsersPage() {
-  const activeUsers = users.filter((u) => u.status === "Active").length;
-  const organizers = users.filter((u) => u.role === "Organizer").length;
+  const router = useRouter();
+
+  // State
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [togglingId, setTogglingId] = useState(null);
+
+  // Fetch all users on mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+
+        if (!token || !user) {
+          router.push('/');
+          return;
+        }
+
+        const parsedUser = JSON.parse(user);
+        if (parsedUser.role !== 'admin') {
+          router.push('/');
+          return;
+        }
+
+        const response = await fetch(
+          'http://localhost:9090/api/admin/users',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setUsers(data.data);
+        } else {
+          setError(data.message || 'Failed to fetch users');
+        }
+      } catch (err) {
+        setError('Error fetching users');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [router]);
+
+  // Handle toggle user status
+  const handleToggle = async (userId) => {
+    setTogglingId(userId);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `http://localhost:9090/api/admin/users/${userId}/toggle`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update user in place
+        setUsers(
+          users.map((user) =>
+            user._id === userId
+              ? { ...user, isActive: !user.isActive }
+              : user
+          )
+        );
+      } else {
+        alert(data.message || 'Failed to toggle user status');
+      }
+    } catch (err) {
+      alert('Error toggling user status');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  // Role badge component
+  const RoleBadge = ({ role }) => {
+    const roleColors = {
+      admin: 'bg-red-100 text-red-700',
+      organizer: 'bg-blue-100 text-blue-700',
+      user: 'bg-gray-100 text-gray-700'
+    };
+
+    return (
+      <span
+        className={`inline-block px-3 py-1 rounded text-xs font-medium ${
+          roleColors[role] || roleColors.user
+        }`}
+      >
+        {role.charAt(0).toUpperCase() + role.slice(1)}
+      </span>
+    );
+  };
+
+  // Status badge component
+  const StatusBadge = ({ isActive }) => {
+    return (
+      <span
+        className={`inline-block px-3 py-1 rounded text-xs font-medium ${
+          isActive
+            ? 'bg-green-100 text-green-700'
+            : 'bg-red-100 text-red-700'
+        }`}
+      >
+        {isActive ? 'Active' : 'Inactive'}
+      </span>
+    );
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#fafaf9] py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          <p className="text-gray-600 text-center">Loading users...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white min-h-screen py-12">
-      <div className="container-max">
+    <div className="min-h-screen bg-[#fafaf9] py-12 px-4">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <Link href="/admin" className="font-source text-[#b8960c] hover:text-[#0f172a] transition-colors mb-4 inline-block">
-            ← Back to Admin
-          </Link>
-          <h1 className="font-playfair text-4xl font-bold text-[#0f172a]">Manage Users</h1>
-          <p className="font-source text-gray-600 mt-2">
-            {users.length} total users • {activeUsers} active • {organizers} organizers
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold text-[#0f172a] font-serif mb-8">
+          All Users
+        </h1>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="card p-6">
-            <p className="font-source text-sm text-gray-600 mb-2">Total Users</p>
-            <p className="font-playfair text-3xl font-bold text-[#b8960c]">
-              {users.length}
-            </p>
+        {/* Error state */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+            {error}
           </div>
-          <div className="card p-6">
-            <p className="font-source text-sm text-gray-600 mb-2">Active Users</p>
-            <p className="font-playfair text-3xl font-bold text-[#b8960c]">
-              {activeUsers}
-            </p>
-          </div>
-          <div className="card p-6">
-            <p className="font-source text-sm text-gray-600 mb-2">Organizers</p>
-            <p className="font-playfair text-3xl font-bold text-[#b8960c]">
-              {organizers}
-            </p>
-          </div>
-        </div>
+        )}
 
-        {/* Users Table */}
-        <div className="card p-6">
-          {/* Desktop Table */}
-          <div className="overflow-x-auto hidden md:block">
-            <table className="w-full font-source text-sm">
-              <thead>
-                <tr className="border-b border-[#e7e5e4]">
-                  <th className="text-left py-4 px-4 font-semibold text-gray-700">Name</th>
-                  <th className="text-left py-4 px-4 font-semibold text-gray-700">Email</th>
-                  <th className="text-left py-4 px-4 font-semibold text-gray-700">Role</th>
-                  <th className="text-left py-4 px-4 font-semibold text-gray-700">Join Date</th>
-                  <th className="text-left py-4 px-4 font-semibold text-gray-700">Status</th>
-                  <th className="text-right py-4 px-4 font-semibold text-gray-700">Action</th>
+        {/* Empty state */}
+        {users.length === 0 && !error && (
+          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+            <p className="text-gray-600">No users found</p>
+          </div>
+        )}
+
+        {/* Users table */}
+        {users.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left font-medium text-gray-700">#</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-700">Name</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-700">Email</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-700">Role</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-700">Status</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-700">Joined</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-700">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className="border-b border-[#e7e5e4] hover:bg-[#f5f5f4] transition-colors">
-                    <td className="py-4 px-4 text-gray-900">{user.name}</td>
-                    <td className="py-4 px-4 text-gray-600">{user.email}</td>
-                    <td className="py-4 px-4">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">
-                        {user.role}
-                      </span>
+                {users.map((user, index) => (
+                  <tr
+                    key={user._id}
+                    className="border-b border-gray-200 hover:bg-gray-50"
+                  >
+                    <td className="px-6 py-3 text-gray-900">{index + 1}</td>
+                    <td className="px-6 py-3 font-medium text-gray-900">
+                      {user.name}
                     </td>
-                    <td className="py-4 px-4 text-gray-600">{user.joinDate}</td>
-                    <td className="py-4 px-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        user.status === "Active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
-                        {user.status}
-                      </span>
+                    <td className="px-6 py-3 text-gray-600">{user.email}</td>
+                    <td className="px-6 py-3">
+                      <RoleBadge role={user.role} />
                     </td>
-                    <td className="py-4 px-4 text-right">
-                      <button className="font-source text-sm text-[#b8960c] hover:text-[#0f172a] transition-colors">
-                        View
+                    <td className="px-6 py-3">
+                      <StatusBadge isActive={user.isActive} />
+                    </td>
+                    <td className="px-6 py-3 text-gray-600">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-3">
+                      <button
+                        onClick={() => handleToggle(user._id)}
+                        disabled={togglingId === user._id}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          user.isActive
+                            ? 'border border-red-500 text-red-500 hover:bg-red-50'
+                            : 'border border-green-500 text-green-500 hover:bg-green-50'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {togglingId === user._id
+                          ? 'Updating...'
+                          : user.isActive
+                          ? 'Deactivate'
+                          : 'Activate'}
                       </button>
                     </td>
                   </tr>
@@ -94,39 +217,7 @@ export default function AdminUsersPage() {
               </tbody>
             </table>
           </div>
-
-          {/* Mobile Cards */}
-          <div className="md:hidden space-y-4">
-            {users.map((user) => (
-              <div key={user.id} className="bg-[#f5f5f4] p-4 rounded-sm">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <p className="font-semibold text-gray-900">{user.name}</p>
-                    <p className="font-source text-sm text-gray-600">{user.email}</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    user.status === "Active"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}>
-                    {user.status}
-                  </span>
-                </div>
-                <div className="space-y-1 text-sm text-gray-600 mb-3">
-                  <p>
-                    <span className="font-semibold">Role:</span> {user.role}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Joined:</span> {user.joinDate}
-                  </p>
-                </div>
-                <button className="font-source text-sm text-[#b8960c] hover:text-[#0f172a] transition-colors">
-                  View Details
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
